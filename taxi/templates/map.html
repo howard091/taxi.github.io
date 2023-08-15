@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Start and End Points</title>
+    <style>
+        /* 調整地圖容器的大小 */
+        #map {
+            height: 700px;
+            width: 100%;
+        }
+    </style>
+    <svg id="customMarker1" xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="#FF0000" /> <!-- 圓形背景顏色為紅色 -->
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#FFFFFF" font-size="12">Start</text> <!-- 標籤文字顏色為白色，字體大小為 12px，"Start" 為標籤文字 -->
+    </svg>
+    <svg id="customMarker2" xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="#0000FF" /> <!-- 圓形背景顏色為藍色 -->
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#FFFFFF" font-size="12">End</text> <!-- 標籤文字顏色為白色，字體大小為 12px，"Start" 為標籤文字 -->
+    </svg>
+    <link rel="icon" href="data:image/x-icon;base64,">
+</head>
+<body>
+    <h1>Select Start and End Points</h1>
+    <div id="map"></div>
+
+    <!-- 引入Google Maps JavaScript API -->
+    <script>
+        // 初始化地圖和標記物件
+        function initMap() {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 40.7377, lng: -74.0047 }, // 設定地圖初始位置
+                zoom: 12, // 設定地圖初始縮放層級
+            });
+
+            const startMarker = new google.maps.Marker({
+                map: map,
+                position: { lat: 40.7377, lng: -74.0047 }, // 設定起始點初始位置
+                draggable: true, // 允許使用者拖曳標記物件
+                icon: {
+                    url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(document.getElementById("customMarker1").outerHTML),
+                    labelOrigin: new google.maps.Point(25, 25),
+                },
+            });
+
+            const endMarker = new google.maps.Marker({
+                map: map,
+                position: { lat: 40.7488, lng: -73.9855 }, // 設定目的地初始位置
+                draggable: true, // 允許使用者拖曳標記物件
+                icon: {
+                    url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(document.getElementById("customMarker2").outerHTML),
+                    labelOrigin: new google.maps.Point(25, 25),
+                },
+            });
+
+            // 創建 DirectionsService 物件
+            const directionsService = new google.maps.DirectionsService();
+
+            // 創建 DirectionsRenderer 物件，用於顯示路徑
+            const directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+
+            // 設定 DirectionsRenderer 物件的選項
+            const rendererOptions = {
+                suppressMarkers: true, // 不顯示點標記
+                polylineOptions: {
+                    strokeColor: "#000000", // 路線顏色
+                    strokeWeight: 4, // 路線寬度
+                },
+            };
+
+            directionsRenderer.setOptions(rendererOptions);
+
+            // 新增按鈕點擊事件處理函式
+            document.getElementById("calculateButton").addEventListener("click", calculateDistance);
+
+            // 計算距離並發送 AJAX 請求的函式
+            function calculateDistance() {
+                const startLat = startMarker.getPosition().lat();
+                const startLng = startMarker.getPosition().lng();
+                const endLat = endMarker.getPosition().lat();
+                const endLng = endMarker.getPosition().lng();
+
+                // 發送 AJAX 請求，計算兩個地點之間的距離
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", `/calculate_distance/${startLat}/${startLng}/${endLat}/${endLng}`, true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        const data = JSON.parse(xhr.responseText);
+                        const distance = data.distance;
+                        const taxi_fare = data.taxi_fare;
+
+                        // 將計算結果直接顯示在網頁上，並進行格式化
+                        document.getElementById("result").innerHTML = `Distance between the two locations is: ${distance.toFixed(2)} meters<br>Taxi fare: ${taxi_fare}`;
+
+                        // 創建 DirectionsRequest 物件，設定起點和終點
+                        const request = {
+                            origin: startMarker.getPosition(),
+                            destination: endMarker.getPosition(),
+                            travelMode: google.maps.TravelMode.DRIVING, // 駕駛模式
+                        };
+
+                        // 使用 DirectionsService 請求路徑
+                        directionsService.route(request, function (response, status) {
+                            if (status === google.maps.DirectionsStatus.OK) {
+                                // 在地圖上顯示路徑
+                                directionsRenderer.setDirections(response);
+                            }
+                        });
+                    }
+                };
+                xhr.send();
+            }
+        }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&libraries=places&callback=initMap"></script>
+    <!-- 添加按鈕元素 -->
+    <button id="calculateButton">計算距離與價格</button>
+    <!-- 顯示計算結果的區域 -->
+    <div id="result"></div>
+</body>
+</html>
